@@ -1,0 +1,3 @@
+nohup ./autoreply.sh &
+
+sudo gammu-smsd

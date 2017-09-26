@@ -1,0 +1,340 @@
+<?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
+
+class Auto extends CI_Controller {
+
+public function __construct()
+	{
+		parent::__construct();
+		$this->load->library('session');
+		$this->load->model('Autos');
+	}
+	
+	public function autoreply()
+	{
+		/*ketik ANTRI otomatis reply 
+		Antrian :
+		A = A001
+		B = B002
+		C = C022
+		F = F011
+		*/
+		$messages = $this->Autos->GetSmsNotProcessed();
+		foreach ($messages as $key) 
+		{
+			$msg = strtoupper($key->TextDecoded);
+			$pecah = explode(" ", $msg);
+			$reply = "";
+			if($pecah[0]=='ANTRI')
+			{
+				$gets = $this->Autos->tp();
+				$balas = $this->Autos->BalasanAntri();
+				
+				for($i=0; $i<strlen($balas[0]->maka); $i++)
+				{
+					if($balas[0]->maka[$i] != '$')
+						$reply = $reply.$balas[0]->maka[$i];
+					else
+					{						
+						$reply = $reply."%0a";
+						$reply = $reply.$gets;
+					}
+				}
+
+				$data = array(
+					'TextDecoded' => $reply,
+					'DestinationNumber' => $key->SenderNumber,
+					'Coding' => 'Default_No_Compression'
+					//'SenderID' =>  $this->session->userdata('id_login')
+					);
+
+				$this->Autos->insertOut($data);
+
+				$dataUpdate = array(
+					'status_baca' => 1,
+					'Processed' => 'true',
+					'klasifikasi' => 3
+					);
+
+				$this->Autos->UpdatePesan($dataUpdate, $key->ID);
+			}
+
+			/*	ketik BILLING NO_PERMOHONAN otomatis reply 
+				Billing code anda : 012801820180
+			*/
+
+			else if($pecah[0]=='BILLING')
+			{
+				$gets = $this->Autos->getRecordByNopermohonan($pecah[1]);
+				$balas = $this->Autos->BalasanBilling();
+				if(!empty($gets))
+				{
+					for($i=0; $i<strlen($balas[0]->maka); $i++)
+					{
+						if($balas[0]->maka[$i] != '$')
+							$reply = $reply.$balas[0]->maka[$i];
+						else
+						{						
+							$reply = $reply.$gets[0]->BillingCode;
+						}
+					}
+
+				}
+				else
+					$reply = $reply.$balas[0]->salah;
+
+				$data = array(
+					'TextDecoded' => $reply,
+					'DestinationNumber' => $key->SenderNumber,
+					'Coding' => 'Default_No_Compression'
+					//'SenderID' =>  $this->session->userdata('id_login')
+					);
+
+				$this->Autos->insertOut($data);
+
+				$dataUpdate = array(
+					'status_baca' => 1,
+					'Processed' => 'true',
+					'klasifikasi' => 3
+					);
+
+				$this->Autos->UpdatePesan($dataUpdate, $key->ID);
+			}
+
+			/*	ketik PASPOR NO_PERMOHONAN otomatis reply
+				Papsor sekarang dalam posisi Cetak Paspor
+			*/
+
+			else if($pecah[0]=='PASPOR')
+			{
+				$gets = $this->Autos->getRecordByNopermohonan($pecah[1]);
+				$balas = $this->Autos->BalasanPaspor();
+				if(!empty($gets))
+				{
+					for($i=0; $i<strlen($balas[0]->maka); $i++)
+					{
+						if($balas[0]->maka[$i] != '$')
+							$reply = $reply.$balas[0]->maka[$i];
+						else
+						{						
+							$reply = $reply.$gets[0]->workflow;
+						}
+					}
+
+				}
+				else
+					$reply = $reply.$balas[0]->salah;
+
+				$data = array(
+					'TextDecoded' => $reply,
+					'DestinationNumber' => $key->SenderNumber,
+					'Coding' => 'Default_No_Compression'
+					//'SenderID' =>  $this->session->userdata('id_login')
+					);
+
+				$this->Autos->insertOut($data);
+
+				$dataUpdate = array(
+					'status_baca' => 1,
+					'Processed' => 'true',
+					'klasifikasi' => 3
+					);
+
+				$this->Autos->UpdatePesan($dataUpdate, $key->ID);
+			}
+
+			/*	ketik DAFTAR ANTRIAN simpan di tabel antrian_sms dan otomatis reply
+				Nomor anda sudah terdaftar dan akan pesan akan dikirim ketika antrian anda akan dipanggil.
+			*/	
+
+			else if($pecah[0]=='DAFTAR')
+			{
+				$balas = $this->Autos->BalasanDaftar();
+
+				if(!empty($pecah[1]) && ($pecah[1][0]=='A' || $pecah[1][0]=='B' || $pecah[1][0]=='C' || $pecah[1][0]=='F') && is_numeric($pecah[1][1]) && is_numeric($pecah[1][2]) && is_numeric($pecah[1][3]))
+				{
+					$DATAS = array(
+						'no_hp' => $key->SenderNumber,
+						'no_antrian' => $pecah[1]
+						);
+					$a = $this->Autos->insertDaftar($DATAS);
+					if($a)
+						$reply = $reply.$balas[0]->maka;
+					else
+						$reply = $reply.$balas[0]->salah;
+				}
+				else
+					$reply = $reply.$balas[0]->salah;
+
+				$data = array(
+					'TextDecoded' => $reply,
+					'DestinationNumber' => $key->SenderNumber,
+					'Coding' => 'Default_No_Compression'
+					//'SenderID' =>  $this->session->userdata('id_login')
+					);
+
+				$this->Autos->insertOut($data);
+
+				$dataUpdate = array(
+					'status_baca' => 1,
+					'Processed' => 'true',
+					'klasifikasi' => 3
+					);
+
+				$this->Autos->UpdatePesan($dataUpdate, $key->ID);
+			}
+		}
+	}
+
+	public function settingrespond()
+	{
+		$kirim['auto'] = $this->Autos->GetAllAutoSend();
+		$this->load->view("header");
+		$this->load->view('auto-reply',$kirim);
+		$this->load->view("footer");
+	}
+
+	public function editrespond($kode)
+	{
+		$kirim['hasil'] = $this->Autos->GetAutoByID($kode);
+		if(empty($kirim['hasil']))
+		{
+			$kirim['auto'] = $this->Autos->GetAllAutoSend();
+			$this->load->view("header");
+			$this->load->view('auto-reply',$kirim);
+			$this->load->view("footer");		
+		}
+		else
+		{
+			$this->load->view("header");
+			$this->load->view('edit-auto-reply',$kirim);
+			$this->load->view("footer");	
+		}
+	}	
+
+	public function submitautoreply()
+	{
+		$data = array(
+			'maka' => $_POST['maka'],
+			'salah' => $_POST['salah']
+			);
+		$this->Autos->UpdateAuto($data, $_POST['id_auto_send']);
+		//echo var_dump($a);
+		$kirim['auto'] = $this->Autos->GetAllAutoSend();
+		$kirim['sukses'] = 'Data sukses diupdate.';
+		
+		$this->load->view("header");
+		$this->load->view('auto-reply',$kirim);
+		$this->load->view("footer");		
+	}
+
+	public function settingsend()
+	{
+		$kirim['auto'] = $this->Autos->GetAllAutoKirim();
+		$this->load->view("header");
+		$this->load->view('auto-send',$kirim);
+		$this->load->view("footer");
+	}
+
+	public function editsend($kode)
+	{
+		$kirim['hasil'] = $this->Autos->GetAutoKirimByID($kode);
+		if(empty($kirim['hasil']))
+		{
+			$kirim['auto'] = $this->Autos->GetAllAutoKirim();
+			$this->load->view("header");
+			$this->load->view('auto-send',$kirim);
+			$this->load->view("footer");		
+		}
+		else
+		{
+			$this->load->view("header");
+			$this->load->view('edit-auto-send',$kirim);
+			$this->load->view("footer");	
+		}
+	}	
+
+	public function submitautosend()
+	{
+		$data = array(
+			'maka' => $_POST['maka']
+			);
+		$this->Autos->UpdateAutoKirim($data, $_POST['id_auto_kirim']);
+		//echo var_dump($a);
+		$kirim['auto'] = $this->Autos->GetAllAutoKirim();
+		$kirim['sukses'] = 'Data sukses diupdate.';
+		
+		$this->load->view("header");
+		$this->load->view('auto-send',$kirim);
+		$this->load->view("footer");		
+	}
+
+	public function autosms()
+	{
+		/*
+			dia disms ketika nomor antriannya akan dipanggil kurang 10 nomor lagi.
+		*/
+		$now = $this->Autos->GetABCF();
+		$cache = $this->Autos->GetCache();
+
+/*		echo var_dump($now);
+		echo var_dump($cache);
+*/		if($cache->a != $now['a'] || $cache->b != $now['b'] || $cache->c != $now['c'] || $cache->f != $now['f'])
+		{
+			$tgl = date('d');
+			$bln = date('m');
+			$thn = date('Y');
+			$all = $this->Autos->GetDaftarNow($tgl, $bln, $thn);
+			
+			$a = $now['a']+10;
+			$apredict = sprintf("%03d",$a);
+			$apredict = 'A'.$apredict;
+
+			$b = $now['b']+10;
+			$bpredict = sprintf("%03d",$b);
+			$bpredict = 'B'.$bpredict;
+
+			$c = $now['c']+10;
+			$cpredict = sprintf("%03d",$c);
+			$cpredict = 'C'.$cpredict;
+
+			$f = $now['f']+10;
+			$fpredict = sprintf("%03d",$f);
+			$fpredict = 'F'.$fpredict;
+//			echo var_dump($all);
+			$reply = $this->Autos->GetAutoKirimByID(1);
+			foreach ($all as $key) 
+			{
+				if($key->no_antrian == $apredict || $key->no_antrian == $bpredict || $key->no_antrian == $cpredict || $key->no_antrian == $fpredict)
+				{
+					$data = array(
+					'TextDecoded' => $reply->maka,
+					'DestinationNumber' => $key->no_hp,
+					'Coding' => 'Default_No_Compression'
+					//'SenderID' =>  $this->session->userdata('id_login')
+					);
+
+					$this->Autos->insertOut($data);
+				}
+			}
+
+			$datas = array(
+				'a' => $now['a'],
+				'b' => $now['b'],
+				'c' => $now['c'],
+				'f' => $now['f']
+				);
+			$this->Autos->updateCache($datas, 1);
+		}
+	} 
+
+	public function baca_lengkap($kode, $id_pesan)
+	{
+		$this->load->view("header");
+		$this->load->view('baca');
+		$this->load->view("footer");
+	}
+
+}
+
+/* End of file welcome.php */
+/* Location: ./application/controllers/welcome.php */

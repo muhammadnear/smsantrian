@@ -1,0 +1,7 @@
+#!/bin/sh
+
+clear
+
+cd /var/www/html/sms/
+
+php index.php auto autoreply
